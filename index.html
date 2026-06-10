@@ -190,7 +190,7 @@ async function appendToSheet(amount, driveLink) {
   const resp = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/Sheet1!A:C:append?valueInputOption=USER_ENTERED', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values: [[amount, driveLink, dateStr]] })
+    body: JSON.stringify({ values: [[dateStr, amount, driveLink]] })
   });
   if (!resp.ok) throw new Error('שגיאה בעדכון הטבלה');
 }
