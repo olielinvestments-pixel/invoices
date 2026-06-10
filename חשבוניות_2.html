@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="חשבוניות">
+<meta name="theme-color" content="#ffffff">
+<title>חשבוניות</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; min-height: 100dvh; display: flex; flex-direction: column; }
+  .topbar { background: #fff; padding: 16px 20px 12px; border-bottom: 0.5px solid #e0e0e0; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; }
+  .topbar h1 { font-size: 20px; font-weight: 600; color: #1a1a1a; }
+  .topbar p { font-size: 13px; color: #888; margin-top: 2px; }
+  .login-badge { font-size: 12px; color: #fff; background: #34a853; border-radius: 20px; padding: 4px 10px; display: none; }
+  .content { flex: 1; padding: 20px 16px; max-width: 480px; width: 100%; margin: 0 auto; }
+  .card { background: #fff; border-radius: 16px; padding: 20px; margin-bottom: 16px; border: 0.5px solid #e8e8e8; }
+  .upload-zone { border: 1.5px dashed #ccc; border-radius: 12px; padding: 28px 16px; text-align: center; cursor: pointer; background: #fafafa; }
+  .upload-zone:active { background: #f0f0f0; }
+  .upload-title { font-size: 16px; font-weight: 500; color: #1a1a1a; margin-bottom: 4px; }
+  .upload-sub { font-size: 13px; color: #999; }
+  .camera-btn { display: flex; align-items: center; justify-content: center; gap: 10px; background: #1a1a1a; color: #fff; border: none; border-radius: 12px; padding: 14px; width: 100%; font-size: 16px; font-weight: 500; cursor: pointer; margin-top: 10px; }
+  .camera-btn:active { opacity: 0.85; }
+  .file-preview { display: flex; align-items: center; gap: 10px; padding: 12px; background: #f5f5f7; border-radius: 10px; margin-top: 12px; }
+  .file-name { font-size: 13px; color: #333; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .remove-btn { font-size: 18px; color: #999; background: none; border: none; cursor: pointer; padding: 4px; }
+  .label { font-size: 13px; color: #888; margin-bottom: 8px; }
+  input[type=number] { width: 100%; border: 0.5px solid #ddd; border-radius: 10px; padding: 14px; font-size: 22px; font-weight: 600; background: #fafafa; color: #1a1a1a; outline: none; direction: ltr; text-align: right; }
+  input[type=number]:focus { border-color: #1a1a1a; background: #fff; }
+  .submit-btn { display: flex; align-items: center; justify-content: center; gap: 8px; background: #1a1a1a; color: #fff; border: none; border-radius: 14px; padding: 16px; width: 100%; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+  .submit-btn:active { opacity: 0.85; }
+  .submit-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .login-btn { display: flex; align-items: center; justify-content: center; gap: 10px; background: #4285f4; color: #fff; border: none; border-radius: 14px; padding: 16px; width: 100%; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 16px; }
+  .login-btn:active { opacity: 0.85; }
+  .status { border-radius: 10px; padding: 12px 14px; font-size: 14px; margin-top: 12px; display: none; }
+  .status.loading { background: #e8f0fe; color: #1a56db; }
+  .status.error { background: #fde8e8; color: #c0392b; }
+  .success-screen { display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 20px; flex: 1; }
+  .success-icon { font-size: 56px; margin-bottom: 16px; }
+  .success-title { font-size: 22px; font-weight: 600; color: #1a1a1a; margin-bottom: 6px; }
+  .success-detail { font-size: 15px; color: #888; margin-bottom: 28px; }
+  .again-btn { background: none; border: 0.5px solid #ccc; border-radius: 12px; padding: 12px 28px; font-size: 15px; color: #333; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div id="mainScreen">
+  <div class="topbar">
+    <div>
+      <h1>📄 חשבוניות</h1>
+      <p>העלה וארגן אוטומטית</p>
+    </div>
+    <span class="login-badge" id="loginBadge">מחובר ✓</span>
+  </div>
+  <div class="content">
+
+    <button class="login-btn" id="loginBtn" onclick="signIn()">
+      🔐 התחבר עם Google
+    </button>
+
+    <div class="card">
+      <p class="label">בחר חשבונית</p>
+      <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-title">🖼️ בחר מהגלריה</div>
+        <div class="upload-sub">JPG, PNG, PDF</div>
+      </div>
+      <button class="camera-btn" onclick="document.getElementById('cameraInput').click()">
+        📷 צלם עכשיו
+      </button>
+      <input type="file" id="fileInput" accept="image/*,.pdf" style="display:none" onchange="handleFile(this.files[0])">
+      <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none" onchange="handleFile(this.files[0])">
+      <div class="file-preview" id="filePreview" style="display:none">
+        <span id="fileIcon" style="font-size:24px">📄</span>
+        <span class="file-name" id="fileName"></span>
+        <button class="remove-btn" onclick="clearFile()">✕</button>
+      </div>
+    </div>
+
+    <div class="card" id="amountCard" style="display:none">
+      <p class="label">סכום לתשלום (₪)</p>
+      <input type="number" id="amountInput" placeholder="0.00" step="0.01" min="0">
+    </div>
+
+    <div class="status" id="statusBar"></div>
+
+    <button class="submit-btn" id="submitBtn" style="display:none" onclick="submitInvoice()">
+      ☁️ שמור חשבונית
+    </button>
+
+  </div>
+</div>
+
+<div class="success-screen" id="successScreen">
+  <div class="success-icon">✅</div>
+  <div class="success-title">נשמר בהצלחה!</div>
+  <div class="success-detail" id="successDetail"></div>
+  <button class="again-btn" onclick="resetForm()">+ העלה חשבונית נוספת</button>
+</div>
+
+<script>
+// =============================================
+// הכנס כאן את הפרטים שלך:
+const CLIENT_ID = '265702503338-eomkin6mtr38uhj813ijj7ujjb6spmh1.apps.googleusercontent.com';
+// =============================================
+
+const FOLDER_ID = '11Bzw0i7WZ5Gq3_ISIp6rqtKvvQWiNSpy';
+const SHEET_ID  = '1MNtox_xMhk_KTvC7KRH5niS2FopwHS-eJmbGMHIZY_0';
+const SCOPES    = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets';
+
+let accessToken = null;
+let currentFile = null;
+let tokenClient = null;
+
+function initGoogle() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: (resp) => {
+      if (resp.error) { showStatus('שגיאת התחברות', 'error'); return; }
+      accessToken = resp.access_token;
+      document.getElementById('loginBtn').style.display = 'none';
+      document.getElementById('loginBadge').style.display = 'block';
+    }
+  });
+}
+
+function signIn() {
+  if (!tokenClient) { showStatus('טוען...', 'loading'); return; }
+  tokenClient.requestAccessToken();
+}
+
+function handleFile(file) {
+  if (!file) return;
+  if (!accessToken) { showStatus('יש להתחבר עם Google תחילה', 'error'); return; }
+  currentFile = file;
+  document.getElementById('fileIcon').textContent = file.type === 'application/pdf' ? '📋' : '🖼️';
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('filePreview').style.display = 'flex';
+  document.getElementById('amountCard').style.display = 'block';
+  document.getElementById('submitBtn').style.display = 'flex';
+  setTimeout(() => document.getElementById('amountInput').focus(), 100);
+}
+
+async function submitInvoice() {
+  const amount = parseFloat(document.getElementById('amountInput').value);
+  if (!currentFile) return;
+  if (!accessToken) { showStatus('יש להתחבר עם Google תחילה', 'error'); return; }
+  if (!amount || isNaN(amount) || amount <= 0) { showStatus('יש להזין סכום תקין', 'error'); return; }
+
+  document.getElementById('submitBtn').disabled = true;
+  showStatus('מעלה לגוגל דרייב...', 'loading');
+
+  try {
+    const driveLink = await uploadToDrive(currentFile);
+    showStatus('מעדכן את הטבלה...', 'loading');
+    await appendToSheet(amount, driveLink);
+    hideStatus();
+    const today = new Date();
+    const dateStr = String(today.getDate()).padStart(2,'0') + '/' + String(today.getMonth()+1).padStart(2,'0') + '/' + today.getFullYear();
+    document.getElementById('successDetail').textContent = '₪' + amount.toFixed(2) + ' · ' + currentFile.name + ' · ' + dateStr;
+    document.getElementById('mainScreen').style.display = 'none';
+    document.getElementById('successScreen').style.display = 'flex';
+  } catch(e) {
+    showStatus('שגיאה: ' + e.message, 'error');
+    document.getElementById('submitBtn').disabled = false;
+  }
+}
+
+async function uploadToDrive(file) {
+  const metadata = { name: file.name, parents: [FOLDER_ID] };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file', file);
+  const resp = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + accessToken },
+    body: form
+  });
+  if (!resp.ok) throw new Error('שגיאה בהעלאה לדרייב');
+  const data = await resp.json();
+  return data.webViewLink || 'https://drive.google.com/file/d/' + data.id + '/view';
+}
+
+async function appendToSheet(amount, driveLink) {
+  const today = new Date();
+  const dateStr = String(today.getDate()).padStart(2,'0') + '/' + String(today.getMonth()+1).padStart(2,'0') + '/' + today.getFullYear();
+  const resp = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/Sheet1!A:C:append?valueInputOption=USER_ENTERED', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [[dateStr, amount, driveLink]] })
+  });
+  if (!resp.ok) throw new Error('שגיאה בעדכון הטבלה');
+}
+
+function clearFile() {
+  currentFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('cameraInput').value = '';
+  document.getElementById('filePreview').style.display = 'none';
+  document.getElementById('amountCard').style.display = 'none';
+  document.getElementById('submitBtn').style.display = 'none';
+  hideStatus();
+}
+
+function resetForm() {
+  clearFile();
+  document.getElementById('amountInput').value = '';
+  document.getElementById('mainScreen').style.display = 'block';
+  document.getElementById('successScreen').style.display = 'none';
+  document.getElementById('submitBtn').disabled = false;
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('statusBar');
+  el.textContent = msg;
+  el.className = 'status ' + type;
+  el.style.display = 'block';
+}
+function hideStatus() { document.getElementById('statusBar').style.display = 'none'; }
+</script>
+
+<script src="https://accounts.google.com/gsi/client" onload="initGoogle()"></script>
+</body>
+</html>
