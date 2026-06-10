@@ -55,6 +55,10 @@
     </div>
     <span class="login-badge" id="loginBadge">מחובר ✓</span>
   </div>
+  <div style="display:flex; gap:8px; padding: 12px 16px; background:#fff; border-bottom: 0.5px solid #e0e0e0;">
+    <button id="btnExpense" onclick="setType('expense')" style="flex:1; padding:10px; border-radius:10px; border:none; background:#1a1a1a; color:#fff; font-size:15px; font-weight:600; cursor:pointer;">💸 הוצאה</button>
+    <button id="btnIncome" onclick="setType('income')" style="flex:1; padding:10px; border-radius:10px; border: 1.5px solid #1a1a1a; background:#fff; color:#1a1a1a; font-size:15px; font-weight:600; cursor:pointer;">💰 הכנסה</button>
+  </div>
   <div class="content">
 
     <button class="login-btn" id="loginBtn" onclick="signIn()">
@@ -106,8 +110,11 @@
 const CLIENT_ID = '265702503338-eomkin6mtr38uhj813ijj7ujjb6spmh1.apps.googleusercontent.com';
 // =============================================
 
-const FOLDER_ID = '11Bzw0i7WZ5Gq3_ISIp6rqtKvvQWiNSpy';
-const SHEET_ID  = '1MNtox_xMhk_KTvC7KRH5niS2FopwHS-eJmbGMHIZY_0';
+const EXPENSE_FOLDER_ID = '11Bzw0i7WZ5Gq3_ISIp6rqtKvvQWiNSpy';
+const EXPENSE_SHEET_ID  = '1MNtox_xMhk_KTvC7KRH5niS2FopwHS-eJmbGMHIZY_0';
+const INCOME_FOLDER_ID  = '104B3DKUFpK-1Fuij1zdVuzMR5DUEM7Sz';
+const INCOME_SHEET_ID   = '156h6eHfzwtGHpwNM86xKZkdp_-MjlHZ55lRh-JvkxS8';
+let currentType = 'expense';
 const SCOPES    = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets';
 
 let accessToken = null;
@@ -125,6 +132,27 @@ function initGoogle() {
       document.getElementById('loginBadge').style.display = 'block';
     }
   });
+}
+
+function setType(type) {
+  currentType = type;
+  const btnExpense = document.getElementById('btnExpense');
+  const btnIncome = document.getElementById('btnIncome');
+  if (type === 'expense') {
+    btnExpense.style.background = '#1a1a1a';
+    btnExpense.style.color = '#fff';
+    btnExpense.style.border = 'none';
+    btnIncome.style.background = '#fff';
+    btnIncome.style.color = '#1a1a1a';
+    btnIncome.style.border = '1.5px solid #1a1a1a';
+  } else {
+    btnIncome.style.background = '#1a1a1a';
+    btnIncome.style.color = '#fff';
+    btnIncome.style.border = 'none';
+    btnExpense.style.background = '#fff';
+    btnExpense.style.color = '#1a1a1a';
+    btnExpense.style.border = '1.5px solid #1a1a1a';
+  }
 }
 
 function signIn() {
@@ -169,11 +197,11 @@ async function submitInvoice() {
   }
 }
 
-async function getOrCreateDriveFolder(folderName) {
+async function getOrCreateDriveFolder(parentFolderId) {
   const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
   const today = new Date();
   const name = months[today.getMonth()] + ' ' + today.getFullYear();
-  const searchResp = await fetch("https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder'+and+name='" + encodeURIComponent(name) + "'+and+'" + FOLDER_ID + "'+in+parents+and+trashed=false&fields=files(id)", {
+  const searchResp = await fetch("https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder'+and+name='" + encodeURIComponent(name) + "'+and+'" + parentFolderId + "'+in+parents+and+trashed=false&fields=files(id)", {
     headers: { Authorization: 'Bearer ' + accessToken }
   });
   const searchData = await searchResp.json();
@@ -181,14 +209,14 @@ async function getOrCreateDriveFolder(folderName) {
   const createResp = await fetch('https://www.googleapis.com/drive/v3/files', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [FOLDER_ID] })
+    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentFolderId] })
   });
   const createData = await createResp.json();
   return createData.id;
 }
 
 async function uploadToDrive(file) {
-  const folderId = await getOrCreateDriveFolder();
+  const folderId = await getOrCreateDriveFolder(currentType === 'income' ? INCOME_FOLDER_ID : EXPENSE_FOLDER_ID);
   const metadata = { name: file.name, parents: [folderId] };
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
@@ -203,19 +231,19 @@ async function uploadToDrive(file) {
   return data.webViewLink || 'https://drive.google.com/file/d/' + data.id + '/view';
 }
 
-async function getOrCreateSheet(sheetName) {
-  const infoResp = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '?fields=sheets.properties.title', {
+async function getOrCreateSheet(sheetName, sheetId) {
+  const infoResp = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '?fields=sheets.properties.title', {
     headers: { Authorization: 'Bearer ' + accessToken }
   });
   const info = await infoResp.json();
   const exists = info.sheets.some(s => s.properties.title === sheetName);
   if (!exists) {
-    await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + ':batchUpdate', {
+    await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + ':batchUpdate', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
       body: JSON.stringify({ requests: [{ addSheet: { properties: { title: sheetName } } }] })
     });
-    await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(sheetName) + '!A1:C1?valueInputOption=USER_ENTERED', {
+    await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + encodeURIComponent(sheetName) + '!A1:C1?valueInputOption=USER_ENTERED', {
       method: 'PUT',
       headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
       body: JSON.stringify({ values: [['תאריך', 'סכום', 'קישור לחשבונית']] })
@@ -228,8 +256,9 @@ async function appendToSheet(amount, driveLink) {
   const dateStr = String(today.getDate()).padStart(2,'0') + '/' + String(today.getMonth()+1).padStart(2,'0') + '/' + today.getFullYear();
   const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
   const sheetName = months[today.getMonth()] + ' ' + today.getFullYear();
-  await getOrCreateSheet(sheetName);
-  const resp = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(sheetName) + '!A:C:append?valueInputOption=USER_ENTERED', {
+  const sheetId = currentType === 'income' ? INCOME_SHEET_ID : EXPENSE_SHEET_ID;
+  await getOrCreateSheet(sheetName, sheetId);
+  const resp = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' + encodeURIComponent(sheetName) + '!A:C:append?valueInputOption=USER_ENTERED', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: [[dateStr, amount, driveLink]] })
