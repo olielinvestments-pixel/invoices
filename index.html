@@ -103,7 +103,7 @@
 <script>
 // =============================================
 // הכנס כאן את הפרטים שלך:
-const CLIENT_ID = '265702503338-eomkin6mtr38uhj813ijj7ujjb6spmh1.apps.googleusercontent.com';
+const CLIENT_ID = 'REPLACE_CLIENT_ID';
 // =============================================
 
 const FOLDER_ID = '11Bzw0i7WZ5Gq3_ISIp6rqtKvvQWiNSpy';
@@ -169,8 +169,27 @@ async function submitInvoice() {
   }
 }
 
+async function getOrCreateDriveFolder(folderName) {
+  const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  const today = new Date();
+  const name = months[today.getMonth()] + ' ' + today.getFullYear();
+  const searchResp = await fetch("https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder'+and+name='" + encodeURIComponent(name) + "'+and+'" + FOLDER_ID + "'+in+parents+and+trashed=false&fields=files(id)", {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  const searchData = await searchResp.json();
+  if (searchData.files && searchData.files.length > 0) return searchData.files[0].id;
+  const createResp = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [FOLDER_ID] })
+  });
+  const createData = await createResp.json();
+  return createData.id;
+}
+
 async function uploadToDrive(file) {
-  const metadata = { name: file.name, parents: [FOLDER_ID] };
+  const folderId = await getOrCreateDriveFolder();
+  const metadata = { name: file.name, parents: [folderId] };
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
   form.append('file', file);
@@ -184,10 +203,33 @@ async function uploadToDrive(file) {
   return data.webViewLink || 'https://drive.google.com/file/d/' + data.id + '/view';
 }
 
+async function getOrCreateSheet(sheetName) {
+  const infoResp = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '?fields=sheets.properties.title', {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  const info = await infoResp.json();
+  const exists = info.sheets.some(s => s.properties.title === sheetName);
+  if (!exists) {
+    await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + ':batchUpdate', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: sheetName } } }] })
+    });
+    await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(sheetName) + '!A1:C1?valueInputOption=USER_ENTERED', {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [['תאריך', 'סכום', 'קישור לחשבונית']] })
+    });
+  }
+}
+
 async function appendToSheet(amount, driveLink) {
   const today = new Date();
   const dateStr = String(today.getDate()).padStart(2,'0') + '/' + String(today.getMonth()+1).padStart(2,'0') + '/' + today.getFullYear();
-  const resp = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/Sheet1!A:C:append?valueInputOption=USER_ENTERED', {
+  const months = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  const sheetName = months[today.getMonth()] + ' ' + today.getFullYear();
+  await getOrCreateSheet(sheetName);
+  const resp = await fetch('https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/' + encodeURIComponent(sheetName) + '!A:C:append?valueInputOption=USER_ENTERED', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values: [[dateStr, amount, driveLink]] })
